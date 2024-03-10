@@ -1,7 +1,9 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using UnityEngine.InputSystem;
 
+[RequireComponent(typeof(CharacterController), typeof(PlayerInput))]
 public class RacerController : MonoBehaviour
 {
     public float accelerationForce = 15f;
@@ -10,12 +12,30 @@ public class RacerController : MonoBehaviour
     public float reverseSpeed = 10f;
     public float steeringTorque = 40f;
 
+    public GameObject pauseMenu;
+
+    [SerializeField] private UnityEvent<int> lapUpdateEvent;
+
     public int lapNumber = 1;
     public TMP_Text lapCountText;
 
     public LapTimeRecorder lapTimeRecorder;
 
     private Rigidbody rb;
+    private CharacterController controller;
+
+    // player actions
+    private PlayerInput playerInput;
+    private InputAction moveAction;
+    private InputAction pauseAction;
+
+    private void Awake()
+    {
+        pauseAction = playerInput.actions["Pause"];
+        moveAction = playerInput.actions["Move"];
+        pauseManager = gameObject.FindWithTag("GameManager");
+    }
+
 
     void Start()
     {
@@ -24,6 +44,30 @@ public class RacerController : MonoBehaviour
 
     void FixedUpdate()
     {
+        // Erin's code that I can't test if it would work but would look something like this
+
+        // car movement
+        Vector2 input = moveAction.ReadValue<Vector2>();
+        Vector3 move = new Vector3(input.x, 0, input.y);
+        move = move.x * cameraTransform.right.normalized + move.z * cameraTransform.forward.normalized;
+
+        controller.Move(move * Time.deltaTime * playerSpeed);
+        if (move != Vector3.zero)
+        {
+            gameObject.transform.forward = move;
+        }
+
+
+
+        if (pauseAction.triggered)
+        {
+            pauseMenu.SetActive(true);
+            Cursor.lockState = Cursor.LockMode.None;
+            Cursor.visible = true;
+            isPaused = true;
+            Time.timeScale = 0
+        }
+
         float steeringInput = Input.GetAxis("Horizontal");
         float moveDirection = Input.GetKey(KeyCode.W) ? 1f : Input.GetKey(KeyCode.S) ? -1f : 0f;
 
@@ -51,7 +95,7 @@ public class RacerController : MonoBehaviour
         }
     }
 
-    private void OnTriggerEnter(Collider other)
+    private void OnControllerColliderHit(ControllerColliderHit hit)
     {
         if (other.CompareTag("Lap Trigger"))
         {
@@ -75,13 +119,17 @@ public class RacerController : MonoBehaviour
     {
         if (lapCountText != null)
         {
-            if (lapNumber < 4)
+            switch (lapNumber)
             {
-                lapCountText.text = "Lap: " + lapNumber + " / 3";
-            }
-            else if (lapNumber == 4)
-            {
-                lapCountText.text = "Lap: 3 / 3";
+                case 1:
+                    lapCountText.text = "lap 1/3";
+                    Break;
+                case 2:
+                    lapCountText.text = "lap 2/3";
+                    Break;
+                case 3:
+                    lapCountText.text = "lap 3/3";
+                    Break;
             }
         }
     }
